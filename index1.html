@@ -38,12 +38,18 @@
                 <span id="current-channel-name" class="text-xs text-gray-300 font-medium">Loading...</span>
             </div>
             
-            <div class="flex-1 flex items-center justify-center relative bg-black min-h-0">
-                <!-- Added 'playsinline' and adjusted classes -->
-                <video id="video-player" controls playsinline muted autoplay class="w-full h-full max-h-full object-contain focus:outline-none"></video>
+            <div class="flex-1 flex items-center justify-center relative bg-black min-h-0 group">
+                
+                <!-- Fullscreen Hint Notification (3 seconds) -->
+                <div id="fullscreen-hint" class="absolute z-30 bg-black bg-opacity-75 text-white px-4 py-2 rounded-md text-sm font-medium tracking-wide transition-opacity duration-1000 pointer-events-none">
+                    Double click on screen to enter full screen
+                </div>
+
+                <!-- Video Element -->
+                <video id="video-player" controls playsinline muted autoplay class="w-full h-full max-h-full object-contain focus:outline-none cursor-pointer"></video>
                 
                 <!-- Loading indicator -->
-                <div id="loading" class="hidden absolute inset-0 flex items-center justify-center bg-black bg-opacity-75 z-20">
+                <div id="loading" class="hidden absolute inset-0 flex items-center justify-center bg-black bg-opacity-75 z-20 pointer-events-none">
                     <div class="w-8 h-8 border-4 border-navy border-t-deepred rounded-full animate-spin"></div>
                 </div>
             </div>
@@ -74,6 +80,38 @@
         const video = document.getElementById('video-player');
         const loading = document.getElementById('loading');
         const currentChannelName = document.getElementById('current-channel-name');
+        const fullscreenHint = document.getElementById('fullscreen-hint');
+
+        // Hide the fullscreen hint after 3 seconds
+        setTimeout(() => {
+            if (fullscreenHint) {
+                fullscreenHint.classList.add('opacity-0'); // Fades out smoothly
+                setTimeout(() => fullscreenHint.remove(), 1000); // Removes from DOM after fade out
+            }
+        }, 3000);
+
+        // Double click to toggle Fullscreen
+        video.addEventListener('dblclick', () => {
+            if (!document.fullscreenElement) {
+                // Enter fullscreen
+                if (video.requestFullscreen) {
+                    video.requestFullscreen();
+                } else if (video.webkitRequestFullscreen) { /* Safari */
+                    video.webkitRequestFullscreen();
+                } else if (video.msRequestFullscreen) { /* IE11 */
+                    video.msRequestFullscreen();
+                }
+            } else {
+                // Exit fullscreen
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) { /* Safari */
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) { /* IE11 */
+                    document.msExitFullscreen();
+                }
+            }
+        });
 
         async function fetchPlaylist() {
             try {
