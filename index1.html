@@ -35,7 +35,7 @@
         <div class="flex-1 bg-black flex flex-col relative h-[40vh] md:h-full border-b md:border-b-0 md:border-r border-navy min-h-0">
             <div class="w-full bg-navy text-white py-2 px-4 shadow-md z-10 flex justify-between items-center shrink-0">
                 <span class="font-bold text-lg tracking-wider">SZS tv</span>
-                <span id="current-channel-name" class="text-xs text-gray-300 font-medium">Loading...</span>
+                <span id="current-channel-name" class="text-xs text-gray-300 font-medium truncate ml-4">Loading...</span>
             </div>
             
             <div class="flex-1 flex items-center justify-center relative bg-black min-h-0 group">
@@ -50,7 +50,10 @@
                 
                 <!-- Loading indicator -->
                 <div id="loading" class="hidden absolute inset-0 flex items-center justify-center bg-black bg-opacity-75 z-20 pointer-events-none">
-                    <div class="w-8 h-8 border-4 border-navy border-t-deepred rounded-full animate-spin"></div>
+                    <div class="flex flex-col items-center">
+                        <div class="w-8 h-8 border-4 border-navy border-t-deepred rounded-full animate-spin mb-2"></div>
+                        <span id="loading-text" class="text-xs text-gray-300">Loading stream...</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -75,41 +78,33 @@
         const M3U_URL = 'https://raw.githubusercontent.com/bdtechexpert/live-tv-playlist/refs/heads/main/live-tv-playlist.m3u';
         let channels = [];
         let hls;
+        let currentChannelIndex = -1; // Track currently playing channel index
 
         // Initialize Player
         const video = document.getElementById('video-player');
         const loading = document.getElementById('loading');
+        const loadingText = document.getElementById('loading-text');
         const currentChannelName = document.getElementById('current-channel-name');
         const fullscreenHint = document.getElementById('fullscreen-hint');
 
         // Hide the fullscreen hint after 3 seconds
         setTimeout(() => {
             if (fullscreenHint) {
-                fullscreenHint.classList.add('opacity-0'); // Fades out smoothly
-                setTimeout(() => fullscreenHint.remove(), 1000); // Removes from DOM after fade out
+                fullscreenHint.classList.add('opacity-0');
+                setTimeout(() => fullscreenHint.remove(), 1000);
             }
         }, 3000);
 
         // Double click to toggle Fullscreen
         video.addEventListener('dblclick', () => {
             if (!document.fullscreenElement) {
-                // Enter fullscreen
-                if (video.requestFullscreen) {
-                    video.requestFullscreen();
-                } else if (video.webkitRequestFullscreen) { /* Safari */
-                    video.webkitRequestFullscreen();
-                } else if (video.msRequestFullscreen) { /* IE11 */
-                    video.msRequestFullscreen();
-                }
+                if (video.requestFullscreen) video.requestFullscreen();
+                else if (video.webkitRequestFullscreen) video.webkitRequestFullscreen();
+                else if (video.msRequestFullscreen) video.msRequestFullscreen();
             } else {
-                // Exit fullscreen
-                if (document.exitFullscreen) {
-                    document.exitFullscreen();
-                } else if (document.webkitExitFullscreen) { /* Safari */
-                    document.webkitExitFullscreen();
-                } else if (document.msExitFullscreen) { /* IE11 */
-                    document.msExitFullscreen();
-                }
+                if (document.exitFullscreen) document.exitFullscreen();
+                else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+                else if (document.msExitFullscreen) document.msExitFullscreen();
             }
         });
 
@@ -123,18 +118,7 @@
 
                 // Auto-play the first channel if available
                 if (channels.length > 0) {
-                    const firstChannel = channels[0];
-                    currentChannelName.textContent = firstChannel.name;
-                    playStream(firstChannel.url);
-                    
-                    // Highlight the first channel in the list visually
-                    setTimeout(() => {
-                        const firstItem = document.querySelector('.channel-item');
-                        if(firstItem) {
-                            firstItem.classList.remove('border-transparent');
-                            firstItem.classList.add('bg-gray-800', 'border-deepred', 'bg-opacity-50');
-                        }
-                    }, 100);
+                    playChannel(0);
                 } else {
                     currentChannelName.textContent = "No channels found";
                 }
@@ -160,7 +144,8 @@
                     currentChannel = {
                         name: 'Unknown Channel',
                         logo: '',
-                        url: ''
+                        url: '',
+                        originalIndex: channels.length // Store original index for auto-next tracking
                     };
 
                     // Extract Logo
@@ -192,9 +177,10 @@
                 return;
             }
 
-            channelData.forEach((channel, index) => {
+            channelData.forEach((channel) => {
                 const li = document.createElement('li');
                 li.className = 'flex items-center p-2 rounded cursor-pointer transition-colors duration-200 border-l-4 border-transparent hover:bg-gray-800 channel-item';
+                li.dataset.index = channel.originalIndex; // Save index in DOM attribute
                 
                 // Fallback image if logo is missing or broken
                 const defaultLogo = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="%234b5563" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect><polyline points="17 2 12 7 7 2"></polyline></svg>';
@@ -210,20 +196,58 @@
                 `;
 
                 li.addEventListener('click', () => {
-                    // Update active state styles
-                    document.querySelectorAll('.channel-item').forEach(el => {
-                        el.classList.remove('bg-gray-800', 'border-deepred', 'bg-opacity-50');
-                        el.classList.add('border-transparent');
-                    });
+                    playChannel(channel.originalIndex);
+                });
+
+                // Re-apply active state if searching
+                if(channel.originalIndex === currentChannelIndex) {
                     li.classList.remove('border-transparent');
                     li.classList.add('bg-gray-800', 'border-deepred', 'bg-opacity-50');
-                    
-                    currentChannelName.textContent = channel.name;
-                    playStream(channel.url);
-                });
+                }
 
                 playlistEl.appendChild(li);
             });
+        }
+
+        // Central function to handle channel changing, UI updates, and playing
+        function playChannel(index) {
+            if (index < 0 || index >= channels.length) return;
+            
+            currentChannelIndex = index;
+            const channel = channels[index];
+            
+            currentChannelName.textContent = channel.name;
+            loadingText.textContent = "Loading stream...";
+
+            // Update active state styles in the list
+            document.querySelectorAll('.channel-item').forEach(el => {
+                el.classList.remove('bg-gray-800', 'border-deepred', 'bg-opacity-50');
+                el.classList.add('border-transparent');
+            });
+            
+            const activeLi = document.querySelector(`.channel-item[data-index="${index}"]`);
+            if (activeLi) {
+                activeLi.classList.remove('border-transparent');
+                activeLi.classList.add('bg-gray-800', 'border-deepred', 'bg-opacity-50');
+                // Optional: Scroll to the active item smoothly
+                activeLi.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+
+            playStream(channel.url);
+        }
+
+        // Function to handle playing next channel automatically on error
+        function playNextChannel() {
+            loadingText.textContent = "Stream failed. Trying next...";
+            console.log("Channel failed, attempting to play next channel...");
+            
+            let nextIndex = currentChannelIndex + 1;
+            if (nextIndex < channels.length) {
+                playChannel(nextIndex);
+            } else {
+                currentChannelName.textContent = "End of playlist.";
+                loading.classList.add('hidden');
+            }
         }
 
         function playStream(url) {
@@ -247,8 +271,14 @@
 
                 hls.on(Hls.Events.ERROR, function (event, data) {
                     if (data.fatal) {
-                        loading.classList.add('hidden');
                         console.error('HLS Error:', data);
+                        // If it's a network or media error, skip to next channel after 1 second delay
+                        if (data.type === Hls.ErrorTypes.NETWORK_ERROR || data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                            hls.destroy();
+                            setTimeout(playNextChannel, 1000); 
+                        } else {
+                            loading.classList.add('hidden');
+                        }
                     }
                 });
             } 
@@ -261,6 +291,14 @@
                 });
             }
         }
+
+        // Add Error Listener for Native Video Player (Safari/iOS)
+        video.addEventListener('error', function() {
+            console.error('Native video playback error');
+            if (channels.length > 0) {
+                setTimeout(playNextChannel, 1000);
+            }
+        });
 
         // Search functionality
         document.getElementById('search').addEventListener('input', (e) => {
