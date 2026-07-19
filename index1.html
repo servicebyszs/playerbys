@@ -78,9 +78,9 @@
         const M3U_URL = 'https://raw.githubusercontent.com/bdtechexpert/live-tv-playlist/refs/heads/main/live-tv-playlist.m3u';
         let channels = [];
         let hls;
-        let currentChannelIndex = -1; // Track currently playing channel index
+        let currentChannelIndex = -1; 
 
-        // Initialize Player
+        // Initialize Player elements
         const video = document.getElementById('video-player');
         const loading = document.getElementById('loading');
         const loadingText = document.getElementById('loading-text');
@@ -116,7 +116,7 @@
                 parseM3U(data);
                 renderPlaylist(channels);
 
-                // Auto-play the first channel if available
+                // Auto-play the first active channel
                 if (channels.length > 0) {
                     playChannel(0);
                 } else {
@@ -145,14 +145,13 @@
                         name: 'Unknown Channel',
                         logo: '',
                         url: '',
-                        originalIndex: channels.length // Store original index for auto-next tracking
+                        originalIndex: channels.length,
+                        isDead: false // নতুন প্রোপার্টি: চ্যানেলটি ডেড কিনা ট্র্যাক করার জন্য
                     };
 
-                    // Extract Logo
                     const logoMatch = line.match(/tvg-logo="([^"]+)"/);
                     if (logoMatch) currentChannel.logo = logoMatch[1];
 
-                    // Extract Name
                     const nameMatch = line.match(/,(.+)$/);
                     if (nameMatch) currentChannel.name = nameMatch[1].trim();
                     else {
@@ -172,17 +171,19 @@
             const playlistEl = document.getElementById('playlist');
             playlistEl.innerHTML = '';
 
-            if (channelData.length === 0) {
-                playlistEl.innerHTML = '<li class="text-center text-gray-500 text-sm mt-4">No channels found.</li>';
+            // শুধুমাত্র কাজ করা চ্যানেলগুলো (isDead: false) ফিল্টার করে শো করবে
+            const activeChannels = channelData.filter(ch => !ch.isDead);
+
+            if (activeChannels.length === 0) {
+                playlistEl.innerHTML = '<li class="text-center text-gray-500 text-sm mt-4">No active channels found.</li>';
                 return;
             }
 
-            channelData.forEach((channel) => {
+            activeChannels.forEach((channel) => {
                 const li = document.createElement('li');
                 li.className = 'flex items-center p-2 rounded cursor-pointer transition-colors duration-200 border-l-4 border-transparent hover:bg-gray-800 channel-item';
-                li.dataset.index = channel.originalIndex; // Save index in DOM attribute
+                li.dataset.index = channel.originalIndex; 
                 
-                // Fallback image if logo is missing or broken
                 const defaultLogo = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="%234b5563" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect><polyline points="17 2 12 7 7 2"></polyline></svg>';
                 const logoSrc = channel.logo ? channel.logo : defaultLogo;
 
@@ -199,7 +200,6 @@
                     playChannel(channel.originalIndex);
                 });
 
-                // Re-apply active state if searching
                 if(channel.originalIndex === currentChannelIndex) {
                     li.classList.remove('border-transparent');
                     li.classList.add('bg-gray-800', 'border-deepred', 'bg-opacity-50');
@@ -209,7 +209,6 @@
             });
         }
 
-        // Central function to handle channel changing, UI updates, and playing
         function playChannel(index) {
             if (index < 0 || index >= channels.length) return;
             
@@ -219,7 +218,6 @@
             currentChannelName.textContent = channel.name;
             loadingText.textContent = "Loading stream...";
 
-            // Update active state styles in the list
             document.querySelectorAll('.channel-item').forEach(el => {
                 el.classList.remove('bg-gray-800', 'border-deepred', 'bg-opacity-50');
                 el.classList.add('border-transparent');
@@ -229,23 +227,36 @@
             if (activeLi) {
                 activeLi.classList.remove('border-transparent');
                 activeLi.classList.add('bg-gray-800', 'border-deepred', 'bg-opacity-50');
-                // Optional: Scroll to the active item smoothly
                 activeLi.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
 
             playStream(channel.url);
         }
 
-        // Function to handle playing next channel automatically on error
+        // এই ফাংশনে ডেড চ্যানেল রিমুভ করার লজিক দেওয়া হয়েছে
         function playNextChannel() {
-            loadingText.textContent = "Stream failed. Trying next...";
-            console.log("Channel failed, attempting to play next channel...");
+            loadingText.textContent = "Stream failed. Removing and trying next...";
+            console.log("Channel failed, marking as dead and removing from list...");
             
+            // বর্তমান চ্যানেলটিকে 'Dead' মার্ক করুন
+            channels[currentChannelIndex].isDead = true;
+            
+            // লিস্ট থেকে চ্যানেলটি সরিয়ে দিন (UI আপডেট)
+            const brokenChannelUI = document.querySelector(`.channel-item[data-index="${currentChannelIndex}"]`);
+            if (brokenChannelUI) {
+                brokenChannelUI.remove();
+            }
+
+            // পরবর্তী এমন একটি চ্যানেল খুঁজুন যেটি এখনো Dead নয়
             let nextIndex = currentChannelIndex + 1;
+            while (nextIndex < channels.length && channels[nextIndex].isDead) {
+                nextIndex++;
+            }
+
             if (nextIndex < channels.length) {
                 playChannel(nextIndex);
             } else {
-                currentChannelName.textContent = "End of playlist.";
+                currentChannelName.textContent = "End of active playlist.";
                 loading.classList.add('hidden');
             }
         }
@@ -272,7 +283,7 @@
                 hls.on(Hls.Events.ERROR, function (event, data) {
                     if (data.fatal) {
                         console.error('HLS Error:', data);
-                        // If it's a network or media error, skip to next channel after 1 second delay
+                        // চ্যানেল ফেইল করলে প্লে নেক্সট কল হবে
                         if (data.type === Hls.ErrorTypes.NETWORK_ERROR || data.type === Hls.ErrorTypes.MEDIA_ERROR) {
                             hls.destroy();
                             setTimeout(playNextChannel, 1000); 
@@ -292,7 +303,7 @@
             }
         }
 
-        // Add Error Listener for Native Video Player (Safari/iOS)
+        // Native Player-এর এরর হ্যান্ডলিং 
         video.addEventListener('error', function() {
             console.error('Native video playback error');
             if (channels.length > 0) {
@@ -309,7 +320,7 @@
             renderPlaylist(filteredChannels);
         });
 
-        // Start
+        // Start App
         fetchPlaylist();
     </script>
 </body>
