@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Watch TV</title>
+    <style>
+        /* ডিফল্ট মার্জিন ও প্যাডিং রিসেট */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* বডি ডিজাইন - সুন্দর ব্যাকগ্রাউন্ড ও সেন্টারিং */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        /* মেইন কন্টেইনার বা কার্ড ডিজাইন */
+        .card {
+            background-color: #ffffff;
+            padding: 40px 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            text-align: center;
+            width: 90%;
+            max-width: 400px; /* ডেস্কটপের জন্য ম্যাক্সিমাম সাইজ */
+        }
+
+        /* টেক্সট ডিজাইন */
+        .card h2 {
+            font-size: 22px;
+            color: #333333;
+            margin-bottom: 30px;
+            line-height: 1.4;
+        }
+
+        /* বাটন ডিজাইন */
+        .btn {
+            display: inline-block;
+            background-color: #ff4757;
+            color: #ffffff;
+            text-decoration: none;
+            font-size: 18px;
+            font-weight: bold;
+            padding: 12px 35px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(255, 71, 87, 0.4);
+        }
+
+        /* বাটনে মাউস নিলে যা হবে (Hover effect) */
+        .btn:hover {
+            background-color: #ff6b81;
+            transform: translateY(-3px);
+            box-shadow: 0 6px 15px rgba(255, 71, 87, 0.5);
+        }
+
+        /* বাটনে ক্লিক করার সময় */
+        .btn:active {
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h2>to watch tv </h2>
+        <!-- আপনার দেওয়া লিংকটি এখানে বসানো হয়েছে -->
+        <a href="https://servicebyszs.github.io/playerbys/" class="btn" target="_blank">Click here</a>
+    </div>
+
+</body>
+</html>
